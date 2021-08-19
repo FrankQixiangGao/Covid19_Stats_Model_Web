@@ -5,19 +5,31 @@ import plotly.graph_objects as go
 from dash.dependencies import Input, Output
 import numpy as np
 import pandas as pd
-from datetime import datetime
 from os.path import isfile
 
-baseURL = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/"
-fileNamePickle = "allData.pkl"
+#需要叶芸同学帮忙的，都用中文comment啦，到时候都是要删掉的。 英文的comment不删是给老师看的，叶芸同学也可以帮忙写一些comments。
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+baseURL = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/"
+fileNamePickle = "CovidData.pkl"
 
-tickFont = {'size':12, 'color':"rgb(30,30,30)", 'family':"Courier New, monospace"}
+tickFont = {'size': 20, 'color':"rgb(30,30,30)", 'family':"Arial, sans-serif"} # 你来选个好字体～～～，你审美好，在这里选 - https://www.w3.org/Style/Examples/007/fonts.en.html
+
+def loadData_GLOB(fileName, columnName):
+    agg_dict = { columnName:sum, 'Lat':np.median, 'Long':np.median }
+    data = pd.read_csv(baseURL + fileName) \
+             .rename(columns={ 'Country/Region':'Country' }) \
+             .melt(id_vars=['Country', 'Province/State', 'Lat', 'Long'], var_name='date', value_name=columnName) \
+             .astype({'date':'datetime64[ns]', columnName:'Int64'}, errors='ignore')
+    ## Extract chinese provinces separately.
+    data_CHI = data[data.Country == 'China']
+    data = data.groupby(['Country', 'date']).agg(agg_dict).reset_index()
+    data['Province/State'] = '<all>'
+    return pd.concat([data, data_CHI])
 
 def loadData_US(fileName, columnName):
     id_vars=['Country', 'Province/State', 'Lat', 'Long']
-    agg_dict = {columnName:sum, 'Lat':np.median, 'Long':np.median }
+    agg_dict = { columnName:sum, 'Lat':np.median, 'Long':np.median }
     data = data = pd.read_csv(baseURL + fileName).iloc[:, 6:]
     if 'Population' in data.columns:
         data = data.drop('Population', axis=1)
@@ -33,9 +45,11 @@ def simple_moving_average(df, len=7):
     return df.rolling(len).mean()
 
 def refreshData():
+    data_GLOB = loadData_GLOB("time_series_covid19_confirmed_global.csv", "CumConfirmed") \
+        .merge(loadData_GLOB("time_series_covid19_deaths_global.csv", "CumDeaths"))
     data_US = loadData_US("time_series_covid19_confirmed_US.csv", "CumConfirmed") \
         .merge(loadData_US("time_series_covid19_deaths_US.csv", "CumDeaths"))
-    data = pd.concat([data_US])
+    data = pd.concat([data_GLOB, data_US])
     data.to_pickle(fileNamePickle)
     return data
 
@@ -51,34 +65,69 @@ countries.sort()
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 ## App title, keywords and tracking tag (optional).
+app.index_string = """<!DOCTYPE html>
+<html>
+    <head>
+        <!-- Global site tag (gtag.js) - Google Analytics -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=UA-161733256-2"></script>
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'UA-161733256-2');
+        </script>
+        <meta name="keywords" content="COVID-19,Coronavirus,Dash,Python,Dashboard,Cases,Statistics">
+        <title>COVID-19 Case History</title>
+        {%favicon%}
+        {%css%}
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+       </footer>
+    </body>
+</html>"""
 
 app.layout = html.Div(
-    style={ 'font-family':"Courier New, monospace" },
+    style={'font-family': "Arial, sans-serif" }, # 你来选个好字体～～～，你审美好，在这里选 - https://www.w3.org/Style/Examples/007/fonts.en.html
     children=[
-        html.H1('Confirmed Case History of the COVID-19 (USA)'),
+        html.H1('Case History of COVID-19 in US'),
         html.Div(className="row", children=[
-            html.Div(className="four columns", children=[
+            html.Div(className="three columns", children=[
                 html.H5('Country'),
                 dcc.Dropdown(
                     id='country',
                     options=[{'label':c, 'value':c} for c in countries],
-                    value='USA'
+                    value='Italy'
                 )
             ]),
-            html.Div(className="four columns", children=[
-                html.H5('State / Province'),
+            html.Div(className="three columns", children=[
+                html.H5('State'),
                 dcc.Dropdown(
                     id='state'
                 )
             ]),
-            html.Div(className="four columns", children=[
-                html.H5('Selected Metrics'),
+            html.Div(className="three columns", children=[
+                html.H5('Show lines'),
                 dcc.Checklist(
                     id='metrics',
                     options=[{'label':m, 'value':m} for m in ['Confirmed', 'Deaths']],
                     value=['Confirmed', 'Deaths']
                 )
+            ]),
+            html.Div(className="three columns", children=[
+                html.H5('Show dates'),
+                dcc.Checklist(
+                    id='Important dates',
+                    options=[{'label':m, 'value':m} for m in ['Confirmed', 'Deaths']],
+                    value=['Important Dates']
+                )
             ])
+
+
         ]),
         dcc.Graph(
             id="plot_new_metrics",
@@ -92,7 +141,7 @@ app.layout = html.Div(
             id='interval-component',
             interval=3600*1000, # Refresh data each hour.
             n_intervals=0
-        )
+        ),
     ]
 )
 
@@ -100,7 +149,6 @@ app.layout = html.Div(
     [Output('state', 'options'), Output('state', 'value')],
     [Input('country', 'value')]
 )
-
 def update_states(country):
     d = allData()
     states = list(d.loc[d['Country'] == country]['Province/State'].unique())
@@ -143,7 +191,7 @@ def barchart(data, metrics, prefix="", yaxisTitle=""):
     figure = go.Figure(data=[
         go.Bar(
             name=metric, x=data.date, y=data[prefix + metric],
-            marker_line_color='rgb(0,0,0)', marker_line_width=1,
+            marker_line_color='rgb(0,0,0)', marker_line_width = 1,
             marker_color={ 'Deaths':'rgb(200,30,30)', 'Confirmed':'rgb(100,140,240)'}[metric]
         ) for metric in metrics
     ])
@@ -172,4 +220,4 @@ def update_plots(country, state, metrics, n):
 server = app.server
 
 if __name__ == '__main__':
-    app.run_server(host="0.0.0.0")
+    app.run_server(debug=True)
