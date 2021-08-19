@@ -7,13 +7,11 @@ import numpy as np
 import pandas as pd
 from os.path import isfile
 
-#需要叶芸同学帮忙的，都用中文comment啦，到时候都是要删掉的。 英文的comment不删是给老师看的，叶芸同学也可以帮忙写一些comments。
-
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 baseURL = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/"
-fileNamePickle = "CovidData.pkl"
+fileNamePickle = "allData.pkl"
+external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
-tickFont = {'size': 20, 'color':"rgb(30,30,30)", 'family':"Arial, sans-serif"} # 你来选个好字体～～～，你审美好，在这里选 - https://www.w3.org/Style/Examples/007/fonts.en.html
+tickFont = {'size':12, 'color':"rgb(30,30,30)", 'family':"Apple Chancery, cursive"}
 
 def loadData_GLOB(fileName, columnName):
     agg_dict = { columnName:sum, 'Lat':np.median, 'Long':np.median }
@@ -64,84 +62,52 @@ countries.sort()
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
-## App title, keywords and tracking tag (optional).
-app.index_string = """<!DOCTYPE html>
-<html>
-    <head>
-        <!-- Global site tag (gtag.js) - Google Analytics -->
-        <script async src="https://www.googletagmanager.com/gtag/js?id=UA-161733256-2"></script>
-        <script>
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'UA-161733256-2');
-        </script>
-        <meta name="keywords" content="COVID-19,Coronavirus,Dash,Python,Dashboard,Cases,Statistics">
-        <title>COVID-19 Case History</title>
-        {%favicon%}
-        {%css%}
-    </head>
-    <body>
-        {%app_entry%}
-        <footer>
-            {%config%}
-            {%scripts%}
-            {%renderer%}
-       </footer>
-    </body>
-</html>"""
-
 app.layout = html.Div(
-    style={'font-family': "Arial, sans-serif" }, # 你来选个好字体～～～，你审美好，在这里选 - https://www.w3.org/Style/Examples/007/fonts.en.html
+    style={ 'font-family':"Apple Chancery, cursive" },
     children=[
-        html.H1('Case History of COVID-19 in US'),
+        html.H1('Case history of Covid at USA'),
         html.Div(className="row", children=[
-            html.Div(className="three columns", children=[
+            html.Div(className="four columns", children=[
                 html.H5('Country'),
                 dcc.Dropdown(
                     id='country',
                     options=[{'label':c, 'value':c} for c in countries],
-                    value='Italy'
+                    value='US'
                 )
             ]),
-            html.Div(className="three columns", children=[
-                html.H5('State'),
+            html.Div(className="four columns", children=[
+                html.H5('State / Province'),
                 dcc.Dropdown(
                     id='state'
                 )
             ]),
+        ]),
+
+        html.Div(className="row", children=[
+
+        html.Div(className="nine columns", children=[
+            dcc.Graph(
+                id="plot_new_metrics",
+                config={'displayModeBar': False}
+            ),
+
+        ]),
             html.Div(className="three columns", children=[
-                html.H5('Show lines'),
+                html.H5('Show Metrics'),
                 dcc.Checklist(
                     id='metrics',
                     options=[{'label':m, 'value':m} for m in ['Confirmed', 'Deaths']],
                     value=['Confirmed', 'Deaths']
-                )
+                ),
+
             ]),
-            html.Div(className="three columns", children=[
-                html.H5('Show dates'),
-                dcc.Checklist(
-                    id='Important dates',
-                    options=[{'label':m, 'value':m} for m in ['Confirmed', 'Deaths']],
-                    value=['Important Dates']
-                )
-            ])
 
-
-        ]),
-        dcc.Graph(
-            id="plot_new_metrics",
-            config={ 'displayModeBar': False }
-        ),
-        dcc.Graph(
-            id="plot_cum_metrics",
-            config={ 'displayModeBar': False }
-        ),
+]),
         dcc.Interval(
             id='interval-component',
             interval=3600*1000, # Refresh data each hour.
             n_intervals=0
-        ),
+        )
     ]
 )
 
@@ -180,19 +146,19 @@ def add_trend_lines(figure, data, metrics, prefix):
                 go.Scatter(
                     x=data.date, y=data[prefix + metric + 'SMA7'],
                     mode='lines', line=dict(
-                        width=3, color='rgb(200,30,30)' if metric == 'Deaths' else 'rgb(100,140,240)'
+                        width=3, color='rgb(0,128,0)' if metric == 'Deaths' else 'rgb(100,140,240)'
                     ),
                     name='Rolling 7-Day Average of Deaths' if metric == 'Deaths' \
                         else 'Rolling 7-Day Average of Confirmed'
                 )
             )
 
-def barchart(data, metrics, prefix="", yaxisTitle=""):
+def barchart(data, metrics, prefix="", yaxisTitle="", axisTitle=""):
     figure = go.Figure(data=[
         go.Bar(
             name=metric, x=data.date, y=data[prefix + metric],
-            marker_line_color='rgb(0,0,0)', marker_line_width = 1,
-            marker_color={ 'Deaths':'rgb(200,30,30)', 'Confirmed':'rgb(100,140,240)'}[metric]
+            #marker_line_color='rgb(0,0,0)', marker_line_width=1,
+            marker_color={ 'Deaths':'rgb(0,128,0)', 'Confirmed':'rgb(100,140,240)'}[metric]
         ) for metric in metrics
     ])
     add_trend_lines(figure, data, metrics, prefix)
@@ -213,11 +179,11 @@ def barchart(data, metrics, prefix="", yaxisTitle=""):
 def update_plots(country, state, metrics, n):
     refreshData()
     data = filtered_data(country, state)
-    barchart_new = barchart(data, metrics, prefix="New", yaxisTitle="New Cases per Day")
+    barchart_new = barchart(data, metrics, prefix="New", yaxisTitle="New Cases per new day (Thousand)", axisTitle="Date")
     barchart_cum = barchart(data, metrics, prefix="Cum", yaxisTitle="Cumulated Cases")
     return barchart_new, barchart_cum
 
 server = app.server
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(host="0.0.0.0")
