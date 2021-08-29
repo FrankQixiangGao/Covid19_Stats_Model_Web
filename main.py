@@ -8,6 +8,7 @@ import pandas as pd
 from os.path import isfile
 import scipy
 from scipy.misc import derivative
+from numpy import diff
 def function(x):
     return
 
@@ -144,6 +145,11 @@ def filtered_data(country, state):
     data['dateStr'] = data['date'].dt.strftime('%b %d, %Y')
     data['NewDeathsSMA7'] = simple_moving_average(data.NewDeaths, len=7)
     data['NewConfirmedSMA7'] = simple_moving_average(data.NewConfirmed, len=7)
+   # dx = data.date
+   # dy = data.NewConfirmedSAM7
+   # dydx = diff(dy)/diff(dx)
+  #  print(dydx)
+    # data['Derivative'] = dydx
     return data
 
 def add_trend_lines(figure, data, metrics, prefix):
@@ -152,12 +158,11 @@ def add_trend_lines(figure, data, metrics, prefix):
             figure.add_trace(
                 graph.Scatter(
                     x=data.date, y=data[prefix + metric + 'SMA7'],
-                    mode='lines', line=dict(
-                        width=3, color='rgb(0,128,0)' if metric == 'Deaths' else 'rgb(100,140,240)'
-                    ),
-                    name='Rolling 7-Day Average of Deaths' if metric == 'Deaths' \
+                    mode='lines', line=dict(width=3, color='rgb(0,128,0)' if metric == 'Dealth' else 'rgb(100,140,240)'),
+                    name='Rolling 7-Day Average of Deaths' if metric == 'Dealth' \
                         else 'Rolling 7-Day Average of Confirmed'
                 )
+
             )
 
 def barchart(data, metrics, prefix="", yaxisTitle="", axisTitle=""):
