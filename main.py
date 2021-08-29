@@ -1,11 +1,18 @@
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-import plotly.graph_objects as go
+import plotly.graph_objects as graph
 from dash.dependencies import Input, Output
 import numpy as np
 import pandas as pd
 from os.path import isfile
+import scipy
+from scipy.misc import derivative
+def function(x):
+    return
+
+def deriv(x):
+    return derivative(function, x)
 
 baseURL = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/"
 fileNamePickle = "allData.pkl"
@@ -143,7 +150,7 @@ def add_trend_lines(figure, data, metrics, prefix):
     if prefix == 'New':
         for metric in metrics:
             figure.add_trace(
-                go.Scatter(
+                graph.Scatter(
                     x=data.date, y=data[prefix + metric + 'SMA7'],
                     mode='lines', line=dict(
                         width=3, color='rgb(0,128,0)' if metric == 'Deaths' else 'rgb(100,140,240)'
@@ -154,8 +161,8 @@ def add_trend_lines(figure, data, metrics, prefix):
             )
 
 def barchart(data, metrics, prefix="", yaxisTitle="", axisTitle=""):
-    figure = go.Figure(data=[
-        go.Bar(
+    figure = graph.Figure(data=[
+        graph.Bar(
             name=metric, x=data.date, y=data[prefix + metric],
             #marker_line_color='rgb(0,0,0)', marker_line_width=1,
             marker_color={ 'Deaths':'rgb(0,128,0)', 'Confirmed':'rgb(100,140,240)'}[metric]
