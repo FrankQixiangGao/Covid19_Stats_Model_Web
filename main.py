@@ -6,8 +6,10 @@ from dash.dependencies import Input, Output
 import numpy as np
 import pandas as pd
 from os.path import isfile
-from datetime import datetime as dt
+from datetime import datetime
 from datetime import date
+from dateutil import parser
+import statistics
 
 GlobalURL = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/"
 fileNamePickle = "allData.pkl"
@@ -130,9 +132,10 @@ app.layout = html.Div(
                     with_portal=False,
                     first_day_of_week=0,
                     reopen_calendar_on_clear=True,
-                    min_date_allowed=date(2020, 1, 23),
+                    min_date_allowed=date(2020, 1, 22),
                     max_date_allowed=today,
-                    initial_visible_month=date(2020, 1, 23),
+                    initial_visible_month=date(2020, 1, 22),
+                    start_date=date(2020, 1, 22),
                     end_date=today,
                     minimum_nights=2,
                     persistence=True,
@@ -206,59 +209,52 @@ def add_trend_lines(figure, data, metrics, prefix):
             )
 
 
-def barchart(data, metrics, prefix="", yaxisTitle="", axisTitle=""):
+def barchart(data, metrics, prefix="", yaxisTitle="", start_date="", end_date=""):
+  #  initial_date = datetime(2020, 1, 22).date()
+  #  start_date_date = datetime.strptime(start_date, '%Y-%m-%d')
+  #  end_date_date = datetime.strptime(end_date, '%Y-%m-%d')
+   # start_date = (start_date_date - initial_date).days,
+   # start_int = int("".join(map(str, start_date)))
+   # end_date = (end_date_date - start_date_date).days,
+   # end_int = int("".join(map(str, end_date)))
+    data = data[3:200]
+    mean = int(sum(data.NewConfirmed) / len(data.date)),
+    median = int(statistics.median((data.NewConfirmed))),
     figure = graph.Figure(data=[
         graph.Bar(
             name=metric, x=data.date, y=data[prefix + metric],
             # marker_line_color='rgb(0,0,0)', marker_line_width=1,
             marker_color={'Deaths': 'rgb(0,128,0)', 'Confirmed': 'rgb(100,140,240)'}[metric]
         ) for metric in metrics
-    ])
+
+    ]
+    )
     add_trend_lines(figure, data, metrics, prefix)
     figure.update_layout(
         barmode='group',
         legend=dict(x=.05, y=0.95, font={'size': 15}, bgcolor='rgba(240,240,240,0.5)'),
         plot_bgcolor='#FFFFFF', font=tickFont) \
         .update_xaxes(
-        title="Date from 2020 to 2021", tickangle=-90, type='category', showgrid=False, gridcolor='#DDDDDD',
+        title="mean = {} daily confirm median = {} daily confirm".format(mean, median), tickangle=-90, type='category', showgrid=False, gridcolor='#DDDDDD',
         tickfont=tickFont) \
         .update_yaxes(
         title=yaxisTitle, showgrid=True, gridcolor='#DDDDDD')
+
     return figure
 
 
 @app.callback(
     [Output('plot_new_metrics', 'figure'), Output('plot_cum_metrics', 'figure')],
     [Input('country', 'value'), Input('state', 'value'), Input('metrics', 'value'),
-     Input('interval-component', 'n_intervals')]
+     Input('interval-component', 'n_intervals'), Input("my-date-picker-range", "start_date"),
+     Input("my-date-picker-range", "end_date")]
 )
-def update_plots(country, state, metrics, n):
+def update_plots(country, state, metrics, n, start_date, end_date):
     refreshData()
     data = filtered_data(country, state)
-    barchart_new = barchart(data, metrics, prefix="New", yaxisTitle="New Cases per new day (Thousand)",
-                            axisTitle="Date")
+    barchart_new = barchart(data, metrics, prefix="New", yaxisTitle="New Cases per new day (Thousand)", start_date=start_date, end_date=end_date)
     barchart_cum = barchart(data, metrics, prefix="Cum", yaxisTitle="Cumulated Cases")
     return barchart_new, barchart_cum
-
-
-@app.callback(
-    Output('plot_new_metrics', 'figure'),
-    [dash.dependencies.Input('my-date-picker-range', 'start_date'),
-     dash.dependencies.Input('my-date-picker-range', 'end_date')])
-def update_output(start_date, end_date):
-    string_prefix = 'You have selected: '
-    if start_date is not None:
-        start_date_object = date.fromisoformat(start_date)
-        start_date_string = start_date_object.strftime('%B %d, %Y')
-        string_prefix = string_prefix + 'Start Date: ' + start_date_string + ' | '
-    if end_date is not None:
-        end_date_object = date.fromisoformat(end_date)
-        end_date_string = end_date_object.strftime('%B %d, %Y')
-        string_prefix = string_prefix + 'End Date: ' + end_date_string
-    if len(string_prefix) == len('You have selected: '):
-        return 'Select a date to see it displayed here'
-    else:
-        return string_prefix
 
 server = app.server
 
