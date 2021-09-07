@@ -6,21 +6,20 @@ from dash.dependencies import Input, Output
 import numpy as np
 import pandas as pd
 from os.path import isfile
+from datetime import datetime as dt
 from datetime import date
 
 GlobalURL = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/"
 fileNamePickle = "allData.pkl"
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-USURL = ""
-
-pd = pd.read_url()
+usaURL = "https://github.com/nytimes/covid-19-data/blob/master/us-counties.csv/"
 
 tickFont = {'size': 12, 'color': "rgb(30,30,30)", 'family': "Apple Chancery, cursive"}
 today = date.today()
 
-def loadData_GLOB(fileName, columnName):
+def __loadData_GLOB(fileName, columnName):
     agg_dict = {columnName: sum, 'Lat': np.median, 'Long': np.median}
-    data = pd.read_csv(GlobalURL + fileName) \
+    data = pd.read_csv(GlobalURL + fileName, engine="c") \
         .rename(columns={'Country/Region': 'Country'}) \
         .melt(id_vars=['Country', 'Province/State', 'Lat', 'Long'], var_name='date', value_name=columnName) \
         .astype({'date': 'datetime64[ns]', columnName: 'Int64'}, errors='ignore')
@@ -29,10 +28,10 @@ def loadData_GLOB(fileName, columnName):
     return pd.concat([data])
 
 
-def loadData_US(fileName, columnName):
+def __loadData_US(fileName, columnName):
     id_vars = ['Country', 'Province/State', 'Lat', 'Long']
     agg_dict = {columnName: sum, 'Lat': np.median, 'Long': np.median}
-    data = pd.read_csv(GlobalURL + fileName).iloc[:, 6:]
+    data = pd.read_csv(GlobalURL + fileName, engine="c", low_memory=False, sep=",", encoding="utf-8").iloc[:, 6:]
     if 'Population' in data.columns:
         data = data.drop('Population', axis=1)
     data = data \
@@ -44,19 +43,16 @@ def loadData_US(fileName, columnName):
     return data
 
 
-def loadData_County(fileName, columnName):
-    return
-
-
 def simple_moving_average(df, len=7):
     return df.rolling(len).mean()
 
 
 def refreshData():
-    data_GLOB = loadData_GLOB("time_series_covid19_confirmed_global.csv", "CumConfirmed") \
-        .merge(loadData_GLOB("time_series_covid19_deaths_global.csv", "CumDeaths"))
-    data_US = loadData_US("time_series_covid19_confirmed_US.csv", "CumConfirmed") \
-        .merge(loadData_US("time_series_covid19_deaths_US.csv", "CumDeaths"))
+    data_GLOB = __loadData_GLOB("time_series_covid19_confirmed_global.csv", "CumConfirmed") \
+        .merge(__loadData_GLOB("time_series_covid19_deaths_global.csv", "CumDeaths"))
+    data_US = __loadData_US("time_series_covid19_confirmed_US.csv", "CumConfirmed") \
+        .merge(__loadData_US("time_series_covid19_deaths_US.csv", "CumDeaths"))
+
     data = pd.concat([data_GLOB, data_US])
     data.to_pickle(fileNamePickle)
     return data
@@ -97,14 +93,10 @@ app.layout = html.Div(
                 html.H5('County'),
                 dcc.Dropdown(
                     id='county',
-                    options=[{'label': c, 'value': c} for c in countries],
-
                 )
             ]),
         ]),
-
         html.Div(className="row", children=[
-
             html.Div(className="nine columns", children=[
                 dcc.Graph(
                     id="plot_new_metrics",
@@ -113,6 +105,9 @@ app.layout = html.Div(
             ]),
 
             html.Div(className="three columns", children=[
+                html.A(html.Button('Reset'), href='/', style={'text-align': 'right'}),
+                html.Br(),
+                html.Br(),
                 html.H5('Selected Metrics'),
                 dcc.Checklist(
                     id='metrics',
@@ -125,28 +120,44 @@ app.layout = html.Div(
                     options=[{'label': m, 'value': m} for m in ['Policy Action date', 'Holiday']],
                     value=['State Policy Action date', 'Holiday']
                 ),
-                html.Br(),
-                html.Br(),
-                html.A(html.Button('Reset'), href='/', style={'text-align': 'right'}),
+
                 html.Br(),
                 html.Br(),
                 html.H5("Calender"),
                 dcc.DatePickerRange(
                     id='my-date-picker-range',
-                    min_date_allowed=date(2019, 12, 31),
+                    end_date_placeholder_text="Enter Date",
+                    with_portal=False,
+                    first_day_of_week=0,
+                    reopen_calendar_on_clear=True,
+                    min_date_allowed=date(2020, 1, 23),
                     max_date_allowed=today,
-                    initial_visible_month=date(2019, 12, 31),
-                    end_date=today
+                    initial_visible_month=date(2020, 1, 23),
+                    end_date=today,
+                    minimum_nights=2,
+                    persistence=True,
+                    persisted_props=['start_date'],
+                    persistence_type='session',
+                    updatemode="singledate"
                 ),
             ]),
         ]),
-
 
         dcc.Interval(
             id='interval-component',
             interval=3600 * 1000,  # Refresh data each hour.
             n_intervals=0
-        )
+        ),
+        html.Br(),
+        html.Br(),
+        html.Br(),
+        html.Br(),
+        html.Br(),
+        html.Br(),
+        html.Br(),
+        html.Br(),
+        html.H5("Given credit to Frank and Yeyun for this web", style={'text-align': 'center'})
+
     ]
 )
 
@@ -175,7 +186,6 @@ def filtered_data(country, state):
     newCases = data.select_dtypes(include='Int64').diff().fillna(0)
     newCases.columns = [column.replace('Cum', 'New') for column in newCases.columns]
     data = data.join(newCases)
-    #data['dateStr'] = data['date'].dt.strftime('%b %d, %Y')
     data['dateStr'] = data['date'].dt.strftime('%b %d, %Y')
     data['NewDeathsSMA7'] = simple_moving_average(data.NewDeaths, len=7)
     data['NewConfirmedSMA7'] = simple_moving_average(data.NewConfirmed, len=7)
@@ -232,7 +242,7 @@ def update_plots(country, state, metrics, n):
 
 
 @app.callback(
-    dash.dependencies.Output('output-container-date-picker-range', 'children'),
+    Output('plot_new_metrics', 'figure'),
     [dash.dependencies.Input('my-date-picker-range', 'start_date'),
      dash.dependencies.Input('my-date-picker-range', 'end_date')])
 def update_output(start_date, end_date):
