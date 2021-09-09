@@ -6,9 +6,9 @@ from dash.dependencies import Input, Output
 import numpy as np
 import pandas as pd
 from os.path import isfile
-from datetime import datetime
 from datetime import date
-from dateutil import parser
+import plotly.express as px
+from datetime import datetime as dt
 import statistics
 
 GlobalURL = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/"
@@ -44,9 +44,6 @@ def __loadData_US(fileName, columnName):
         .groupby(['Country', 'Province/State', 'date']).agg(agg_dict).reset_index()
     return data
 
-
-def simple_moving_average(df, len=7):
-    return df.rolling(len).mean()
 
 
 def refreshData():
@@ -135,10 +132,10 @@ app.layout = html.Div(
                     min_date_allowed=date(2020, 1, 22),
                     max_date_allowed=today,
                     initial_visible_month=date(2020, 1, 22),
-                    start_date=date(2020, 1, 22),
-                    end_date=today,
                     minimum_nights=2,
                     persistence=True,
+                    start_date=date(2020, 1, 22),
+                    end_date=date(2021, 9, 9),
                     persisted_props=['start_date'],
                     persistence_type='session',
                     updatemode="singledate"
@@ -159,7 +156,7 @@ app.layout = html.Div(
         html.Br(),
         html.Br(),
         html.Br(),
-        html.H5("Given credit to Frank and Yeyun for this web", style={'text-align': 'center'})
+        html.H5("Given credit to Frank and Yeyun for this web, and Yeyun is so cute!", style={'text-align': 'center'})
 
     ]
 )
@@ -190,56 +187,64 @@ def filtered_data(country, state):
     newCases.columns = [column.replace('Cum', 'New') for column in newCases.columns]
     data = data.join(newCases)
     data['dateStr'] = data['date'].dt.strftime('%b %d, %Y')
-    data['NewDeathsSMA7'] = simple_moving_average(data.NewDeaths, len=7)
-    data['NewConfirmedSMA7'] = simple_moving_average(data.NewConfirmed, len=7)
     return data
 
-def add_trend_lines(figure, data, metrics, prefix):
-    if prefix == 'New':
-        for metric in metrics:
-            figure.add_trace(
-                graph.Scatter(
-                    x=data.date, y=data[prefix + metric + 'SMA7'],
-                    mode='lines',
-                    line=dict(width=3, color='rgb(0,128,0)' if metric == 'Deaths' else 'rgb(100,140,240)'),
-                    name='Rolling 7-Day Average of Death' if metric == 'Deaths' \
-                        else 'Rolling 7-Day Average of Confirm'
-                )
 
-            )
-
-
-def barchart(data, metrics, prefix="", yaxisTitle="", start_date="", end_date=""):
-  #  initial_date = datetime(2020, 1, 22).date()
-  #  start_date_date = datetime.strptime(start_date, '%Y-%m-%d')
-  #  end_date_date = datetime.strptime(end_date, '%Y-%m-%d')
+def barchart(data, metrics, start_date, end_date, prefix="", yaxisTitle=""):
+   # initial_date = datetime(2020, 1, 22).date()
+  # if (not start_date == None) and not end_date == None:
+    start_date = dt.strptime(start_date, '%Y-%m-%d')
+    end_date = dt.strptime(end_date, '%Y-%m-%d')
    # start_date = (start_date_date - initial_date).days,
    # start_int = int("".join(map(str, start_date)))
    # end_date = (end_date_date - start_date_date).days,
    # end_int = int("".join(map(str, end_date)))
-    data = data[3:200]
-    mean = int(sum(data.NewConfirmed) / len(data.date)),
-    median = int(statistics.median((data.NewConfirmed))),
+   # data_cal = data[start_date:end_date]
+    #mean = int(sum(data_cal.NewConfirmed) / len(data_cal.date)),
+    #median = int(statistics.median((data_cal.NewConfirmed))),
     figure = graph.Figure(data=[
         graph.Bar(
             name=metric, x=data.date, y=data[prefix + metric],
             # marker_line_color='rgb(0,0,0)', marker_line_width=1,
             marker_color={'Deaths': 'rgb(0,128,0)', 'Confirmed': 'rgb(100,140,240)'}[metric]
         ) for metric in metrics
-
     ]
     )
-    add_trend_lines(figure, data, metrics, prefix)
     figure.update_layout(
         barmode='group',
         legend=dict(x=.05, y=0.95, font={'size': 15}, bgcolor='rgba(240,240,240,0.5)'),
         plot_bgcolor='#FFFFFF', font=tickFont) \
+        .add_vrect(x0=start_date, x1=end_date, y0=0, y1=1000000, fillcolor="LightSalmon", opacity=0.3)\
         .update_xaxes(
-        title="mean = {} daily confirm median = {} daily confirm".format(mean, median), tickangle=-90, type='category', showgrid=False, gridcolor='#DDDDDD',
+        title="mean = {}  daily confirm median = {}  daily confirm", tickangle=-90, type='category', showgrid=False, gridcolor='#DDDDDD',
         tickfont=tickFont) \
         .update_yaxes(
-        title=yaxisTitle, showgrid=True, gridcolor='#DDDDDD')
-
+        title=yaxisTitle, showgrid=True, gridcolor='#DDDDDD') \
+        .add_vline(x=0) \
+        .add_vline(x="2020-07-04", line_width=3, line_dash="dash", line_color="purple") \
+        .add_shape(type="line", x0=dt(2020, 12, 25), x1=dt(2020, 12, 25), y0=1000000, y1=0, line=dict(
+                  color="MediumPurple", width=1))\
+        .add_annotation(x=dt(2020, 12, 25), y=1000001,
+                   text="Christmas",
+                   showarrow=True,
+                   arrowhead=1)\
+        .add_shape(type="line", x0=dt(2020, 7, 4), x1=dt(2020, 7, 4), y0=1000000, y1=0, line=dict(
+                    color="Yellow", width=1)) \
+        .add_annotation(x=dt(2020, 7, 4), y=1000001,
+                    text="Independent Day",
+                    showarrow=True,
+                    arrowhead=1) \
+        .add_shape(type="line", x0=dt(2021, 7, 4), x1=dt(2021, 7, 4), y0=1000000, y1=0, line=dict(
+        color="Yellow", width=1)) \
+        .add_annotation(x=dt(2021, 7, 4), y=1000001,
+                        text="Independent Day",
+                        showarrow=True,
+                        arrowhead=1) \
+        .add_shape(type="line", x0=dt(2021, 11, 5), x1=dt(2021, 11, 5), y0=1000000, y1=0, line=dict(color="Blue", width=1)) \
+        .add_annotation(x=dt(2021, 11, 5), y=1000001,
+                    text="Labor Day",
+                    showarrow=True,
+                    arrowhead=1)
     return figure
 
 
@@ -252,8 +257,8 @@ def barchart(data, metrics, prefix="", yaxisTitle="", start_date="", end_date=""
 def update_plots(country, state, metrics, n, start_date, end_date):
     refreshData()
     data = filtered_data(country, state)
-    barchart_new = barchart(data, metrics, prefix="New", yaxisTitle="New Cases per new day (Thousand)", start_date=start_date, end_date=end_date)
-    barchart_cum = barchart(data, metrics, prefix="Cum", yaxisTitle="Cumulated Cases")
+    barchart_new = barchart(data, metrics, start_date, end_date, prefix="New", yaxisTitle="New Cases per new day (Thousand)")
+    barchart_cum = barchart(data, metrics, start_date, end_date, prefix="Cum", yaxisTitle="Cumulated Cases")
     return barchart_new, barchart_cum
 
 server = app.server
