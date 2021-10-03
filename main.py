@@ -12,8 +12,7 @@ from datetime import datetime as dt
 GlobalURL = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/"
 fileNamePickle = "allData.pkl"
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-
-importdate = pd.read_csv("Covid-19 Important Date Data.csv")
+importdate = pd.read_csv("Covid19-Imp.csv")
 
 tickFont = {'size': 12, 'color': "rgb(30,30,30)", 'family': "Apple Chancery, cursive"}
 today = date.today()
@@ -62,7 +61,6 @@ def allData():
     allData = pd.read_pickle(fileNamePickle)
     return allData
 
-
 countries = allData()['Country'].unique()
 countries.sort()
 
@@ -87,6 +85,12 @@ app.layout = html.Div(
                     id='state'
                 )
             ]),
+            html.Div(className="three columns", children=[
+                html.H5('county'),
+                dcc.Dropdown(
+                    id='county'
+                )
+            ]),
         ]),
         html.Div(className="row", children=[
             html.Div(className="nine columns", children=[
@@ -106,12 +110,6 @@ app.layout = html.Div(
                     id='metrics',
                     options=[{'label': m, 'value': m} for m in ['Confirmed', 'Deaths']],
                     value=['Confirmed', 'Deaths']
-                ),
-                html.H5('Selected Date'),
-                dcc.Checklist(
-                    id='important date',
-                    options=[{'label': m, 'value': m} for m in ['Policy Action date', 'Holiday']],
-                    value=['State Policy Action date', 'Holiday']
                 ),
                 html.H5("Calender"),
                 dcc.DatePickerRange(
@@ -141,15 +139,10 @@ app.layout = html.Div(
             interval=3600 * 1000,  # Refresh data each hour.
             n_intervals=0
         ),
-        html.Br(),
-        html.Br(),
-        html.Br(),
-        html.Br(),
-        html.Br(),
-        html.Br(),
-        html.Br(),
-        html.Br(),
-        html.H5("Given credit to Frank and Yeyun for this web", style={'text-align': 'center'})
+       # html.Br(),
+       # html.Br(),
+       # html.Br(),
+      #  html.H5("Given credit to Frank and Yeyun for this web", style={'text-align': 'center'})
     ]
 )
 
@@ -187,9 +180,6 @@ def filtered_data(country, state):
 def barchart(data, metrics, start_date, end_date, prefix="", yaxisTitle=""):
     start_date = dt.strptime(start_date, '%Y-%m-%d')
     end_date = dt.strptime(end_date, '%Y-%m-%d')
-    MaskStart = dt.strptime(ImportantDate[1], '%Y-%m-%d')
-    MaskEnd = dt.strptime(ImportantDate[2], '%Y-%m-%d')
-    Vaccine = dt.strptime(ImportantDate[3], '%Y-%m-%d')
     figure = graph.Figure(data=[
         graph.Bar(
             name=metric, x=data.date, y=data[prefix + metric],
@@ -198,34 +188,6 @@ def barchart(data, metrics, start_date, end_date, prefix="", yaxisTitle=""):
         ) for metric in metrics
     ]
     )
-    #    .add_vrect(x0=start_date, x1=end_date, y0=0, y1=1, fillcolor="LightSalmon", opacity=0.3)\
-    """
-          .add_vline(x="2020-07-04", line_width=3, line_dash="dash", line_color="purple") \
-          .add_shape(type="line", x0=dt(2020, 12, 25), x1=dt(2020, 12, 25), y0=1000000, y1=0, line=dict(
-                    color="MediumPurple", width=1))\
-          .add_annotation(x=dt(2020, 12, 25), y=1000001,
-                     text="Christmas",
-                     showarrow=True,
-                     arrowhead=1)\
-          .add_shape(type="line", x0=dt(2020, 7, 4), x1=dt(2020, 7, 4), y0=1000000, y1=0, line=dict(
-                      color="Yellow", width=1)) \
-          .add_annotation(x=dt(2020, 7, 4), y=1000001,
-                      text="Independent Day",
-                      showarrow=True,
-                      arrowhead=1) \
-          .add_shape(type="line", x0=dt(2021, 7, 4), x1=dt(2021, 7, 4), y0=1000000, y1=0, line=dict(
-          color="Yellow", width=1)) \
-          .add_annotation(x=dt(2021, 7, 4), y=1000001,
-                          text="Independent Day",
-                          showarrow=True,
-                          arrowhead=1) \
-          .add_shape(type="line", x0=dt(2021, 11, 5), x1=dt(2021, 11, 5), y0=1000000, y1=0, line=dict(color="Blue", width=1)) \
-          .add_annotation(x=dt(2021, 11, 5), y=1000001,
-                      text="Labor Day",
-                      showarrow=True,
-                      arrowhead=1) \
-                       \ """
-
     figure.update_layout(
         barmode='group',
         legend=dict(x=.05, y=0.95, font={'size': 15}, bgcolor='rgba(240,240,240,0.5)'),
@@ -235,22 +197,37 @@ def barchart(data, metrics, start_date, end_date, prefix="", yaxisTitle=""):
         tickfont=tickFont) \
         .update_yaxes(
         title=yaxisTitle, showgrid=True, gridcolor='#DDDDDD') \
-        .add_shape(type="line", x0=MaskStart, x1=MaskStart, y0=1000000, y1=0, line=dict(color="Blue", width=1)) \
-        .add_annotation(x=MaskStart, y=1000001,
-                        text="maskStart",
-                        showarrow=True,
-                        arrowhead=1) \
-        .add_shape(type="line", x0=MaskEnd, x1=MaskEnd, y0=1000000, y1=0, line=dict(color="Green", width=1)) \
-        .add_annotation(x=MaskEnd, y=1000001,
-                        text="maskEnd",
-                        showarrow=True,
-                        arrowhead=1) \
-        .add_shape(type="line", x0=Vaccine, x1=Vaccine, y0=1000000, y1=0,
+        .add_vrect(x0=start_date, x1=end_date, y0=0, y1=1, fillcolor="LightSalmon", opacity=0.3) \
+        .add_shape(type="line", x0=Vaccine, x1=Vaccine,
                    line=dict(color="Green", width=1)) \
-        .add_annotation(x=Vaccine, y=1000001,
-                        text="Vaccine",
+        .add_annotation(x=Vaccine,
+                        hovertext="Vaccine",
                         showarrow=True,
                         arrowhead=1) \
+        .add_vline(x="2020-07-04", line_width=3, line_dash="dash", line_color="purple") \
+        .add_shape(type="line", x0=dt(2020, 12, 25), x1=dt(2020, 12, 25), y0=1000000, y1=0, line=dict(
+        color="MediumPurple", width=1)) \
+        .add_annotation(x=dt(2020, 12, 25), y=1000001,
+                        hovertext="Christmas",
+                        showarrow=True,
+                        arrowhead=1) \
+        .add_shape(type="line", x0=dt(2020, 7, 4), x1=dt(2020, 7, 4), y0=1000000, y1=0, line=dict(
+        color="Yellow", width=1)) \
+        .add_annotation(x=dt(2020, 7, 4), y=1000001,
+                        hovertext="Independent Day",
+                        showarrow=True,
+                        arrowhead=1) \
+        .add_shape(type="line", x0=dt(2021, 7, 4), x1=dt(2021, 7, 4), y0=1000000, y1=0, line=dict(
+        color="Yellow", width=1)) \
+        .add_annotation(x=dt(2021, 7, 4), y=1000001,
+                        hovertext="Independent Day",
+                        arrowhead=1) \
+        .add_shape(type="line", x0=dt(2021, 11, 5), x1=dt(2021, 11, 5), y0=1000000, y1=0,
+                   line=dict(color="Blue", width=1)) \
+        .add_annotation(x=dt(2021, 11, 5), y=1000001,
+                        showarrow=True,
+                        arrowhead=1,
+                        hovertext="Labor Day") \
 
     return figure
 
